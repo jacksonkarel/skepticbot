@@ -32,6 +32,8 @@ if prompt := st.chat_input():
 
     if bot_type == "LLM":
         response = handle_llm(prompt, openai_api_key)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        st.chat_message("assistant").write(response)
     else:
         response_data = handle_rule_based(prompt, assistant, assistant_id, session_id)
         response = response_data['output']['generic'][0]['text']  # Assuming the first 'generic' entry contains the text.
