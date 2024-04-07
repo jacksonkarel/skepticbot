@@ -9,4 +9,4 @@ def handle_rule_based(prompt, assistant, assistant_id, session_id):
         }
     ).get_result()
 
-    return message_response
+    return message_response, assistant

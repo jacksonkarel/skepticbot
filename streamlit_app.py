@@ -35,8 +35,14 @@ if prompt := st.chat_input():
         st.session_state.messages.append({"role": "assistant", "content": response})
         st.chat_message("assistant").write(response)
     else:
-        response_data = handle_rule_based(prompt, assistant, assistant_id, session_id)
-        response = response_data['output']['generic'][0]['text']  # Assuming the first 'generic' entry contains the text.
+        if 'watson_session' not in st.session_state:
+            assistant, assistant_id, session_id = create_watson_session()
+            st.session_state['watson_session'] = (assistant, assistant_id, session_id)
+        else:
+            assistant, assistant_id, session_id = st.session_state['watson_session']
+        
+        response_data, assistant = handle_rule_based(prompt, assistant, assistant_id, session_id)
+        response = response_data['output']['generic'][0]['text'] 
         st.session_state.messages.append({"role": "assistant", "content": response})
         st.chat_message("assistant").write(response)
 
@@ -50,7 +56,7 @@ if prompt := st.chat_input():
                         st.chat_message("user").write(option['label'])
 
                         # Generate the next response based on the option selected
-                        response_followup = handle_rule_based(option['value']['input']['text'])
+                        response_followup, assistant = handle_rule_based(option['value']['input']['text'])
                         followup_text = response_followup['output']['generic'][0]['text']
                         st.session_state.messages.append({"role": "assistant", "content": followup_text})
                         st.chat_message("assistant").write(followup_text)
