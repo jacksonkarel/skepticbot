@@ -11,6 +11,8 @@ package-mode = false
 python = "3.12.2"
 openai = "^1.16.2"
 streamlit = "^1.33.0"
+ibm-watson = "^8.0.0"
+python-dotenv = "^1.0.1"
 
 
 [build-system]
