@@ -9,4 +9,9 @@ def handle_rule_based(prompt, assistant, assistant_id, session_id):
         }
     ).get_result()
 
-    return message_response, assistant
+    message_text = message_response['output']['generic'][0]['text']
+    
+    if message_text == "{}" and len(message_response['output']['generic']) > 1:
+        message_text = message_response['output']['generic'][1]['text']
+       
+    return message_text, assistant, message_response

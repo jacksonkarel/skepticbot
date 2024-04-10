@@ -41,8 +41,8 @@ if prompt := st.chat_input():
         else:
             assistant, assistant_id, session_id = st.session_state['watson_session']
         
-        response_data, assistant = handle_rule_based(prompt, assistant, assistant_id, session_id)
-        response = response_data['output']['generic'][0]['text'] 
+        response, assistant, response_data = handle_rule_based(prompt, assistant, assistant_id, session_id)
+        
         st.session_state.messages.append({"role": "assistant", "content": response})
         st.chat_message("assistant").write(response)
 
