@@ -20,44 +20,60 @@ if "messages" not in st.session_state:
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
-if prompt := st.chat_input():
-    bot_type_llm = bot_type == "LLM"
+def process_response(option_text):
+    # Fetch session info
+    assistant, assistant_id, session_id = st.session_state['watson_session']
+    # Handle the user's choice
+    response_followup, assistant, response_data = handle_rule_based(option_text, assistant, assistant_id, session_id)
+    # Extract and display response text
+    st.session_state.messages.append({"role": "assistant", "content": response_followup})
+    st.chat_message("assistant").write(response_followup)
+    # Update session info
+    st.session_state['watson_session'] = (assistant, assistant_id, session_id)
+    # Recursively render new buttons if available
+    render_option_buttons(response_data)
 
-    if bot_type_llm and not openai_api_key:
-        st.info("Please add your OpenAI API key to continue.")
-        st.stop()
-    
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
-
-    if bot_type == "LLM":
-        response = handle_llm(prompt, openai_api_key)
-        st.session_state.messages.append({"role": "assistant", "content": response})
-        st.chat_message("assistant").write(response)
-    else:
-        if 'watson_session' not in st.session_state:
-            assistant, assistant_id, session_id = create_watson_session()
-            st.session_state['watson_session'] = (assistant, assistant_id, session_id)
-        else:
-            assistant, assistant_id, session_id = st.session_state['watson_session']
-        
-        response, assistant, response_data = handle_rule_based(prompt, assistant, assistant_id, session_id)
-        
-        st.session_state.messages.append({"role": "assistant", "content": response})
-        st.chat_message("assistant").write(response)
-
-        # Check for option type responses and render buttons
+def render_option_buttons(response_data):
+    # Navigate to the nested 'options' within 'generic'
+    if 'output' in response_data and 'generic' in response_data['output']:
         for item in response_data['output']['generic']:
-            if item['response_type'] == 'option':
+            if item.get('response_type') == 'option' and 'options' in item:
                 for option in item['options']:
-                    if st.button(option['label']):
-                        # Simulate the user selecting the option by adding it as user input
-                        st.session_state.messages.append({"role": "user", "content": option['label']})
-                        st.chat_message("user").write(option['label'])
+                    button_key = f"btn_{option['label'].replace(' ', '_')}"
+                    if st.button(option['label'], key=button_key):
+                        # Process the corresponding response when a button is clicked
+                        process_response(option['value']['input']['text'])
 
-                        # Generate the next response based on the option selected
-                        response_followup, assistant = handle_rule_based(option['value']['input']['text'])
-                        followup_text = response_followup['output']['generic'][0]['text']
-                        st.session_state.messages.append({"role": "assistant", "content": followup_text})
-                        st.chat_message("assistant").write(followup_text)
 
+def handle_chat_input(prompt):
+    if prompt:
+        bot_type_llm = bot_type == "LLM"
+        if bot_type_llm and not openai_api_key:
+            st.info("Please add your OpenAI API key to continue.")
+            st.stop()
+        
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.chat_message("user").write(prompt)
+
+        if bot_type == "LLM":
+            response = handle_llm(prompt, openai_api_key)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.chat_message("assistant").write(response)
+        else:
+            if 'watson_session' not in st.session_state:
+                assistant, assistant_id, session_id = create_watson_session()
+                st.session_state['watson_session'] = (assistant, assistant_id, session_id)
+            else:
+                assistant, assistant_id, session_id = st.session_state['watson_session']
+
+            response, assistant, response_data = handle_rule_based(prompt, assistant, assistant_id, session_id)
+            print(response_data)
+            st.session_state['response_data'] = response_data
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.chat_message("assistant").write(response)
+
+            render_option_buttons(response_data)
+
+# Main execution flow
+if prompt := st.chat_input():
+    handle_chat_input(prompt)
