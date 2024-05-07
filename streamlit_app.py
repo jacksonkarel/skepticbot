@@ -18,64 +18,73 @@ st.caption("A chatbot that questions your ideas")
 
 # Initialize session state for messages if not already done
 if "messages" not in st.session_state:
-    st.session_state["messages"] = [{"role": "assistant", "content": "Hi I'm Skepticbot. I don't believe much, so if you have any beliefs you want challenged write them below. I bet you can't convince me that you hold a single true belief!"}]
+    st.session_state.messages = []
 
-# Display chat messages
-for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
+# Initialize or update session variables for response handling
+if "watson_session" not in st.session_state:
+    st.session_state.watson_session = (assistant, assistant_id, session_id)
+
+def add_message(role, content):
+    """Add a message to the session state."""
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    st.session_state.messages.append({"role": role, "content": content})
 
 def process_response(option_text):
-    print("Processing response for:", option_text)  # Debug print
-    assistant, assistant_id, session_id = st.session_state['watson_session']
+    """Process the chatbot's response after a button click."""
+    assistant, assistant_id, session_id = st.session_state.watson_session
     response_followup, assistant, response_data = handle_rule_based(option_text, assistant, assistant_id, session_id)
-    print("Follow-up response:", response_followup)  # Debug print
-    print("Response Data:", response_data)  # Debug print
+    add_message("assistant", response_followup)
+    st.session_state.watson_session = (assistant, assistant_id, session_id)
+    return response_followup
 
-    st.session_state.messages.append({"role": "assistant", "content": response_followup})
-    st.chat_message("assistant").write(response_followup)
-    st.session_state['watson_session'] = (assistant, assistant_id, session_id)
-
-    if 'output' in response_data and 'generic' in response_data['output']:
-        render_option_buttons(response_data)  # Ensure this function call is correct
-    st.experimental_rerun()  # Make sure to rerun to update the UI
+def on_button_click(option_text):
+    """Handle button click event."""
+    response_followup = process_response(option_text)
+    add_message("assistant", response_followup)
+    # After processing, we clear the user input to reset the chat input field
+    st.session_state.user_input = ''
 
 def render_option_buttons(response_data):
-    print("Rendering buttons for:", response_data)  # Debug print
+    """Render buttons based on response data and assign click handlers."""
     if 'output' in response_data and 'generic' in response_data['output']:
         for item in response_data['output']['generic']:
             if item.get('response_type') == 'option' and 'options' in item:
                 for option in item['options']:
-                    button_key = f"btn_{option['label'].replace(' ', '_')}"
-                    if st.button(option['label'], key=button_key):
-                        print("Button clicked:", option['label'])  # Additional debug print
-                        process_response(option['value']['input']['text'])
+                    st.button(option['label'], on_click=on_button_click, args=[option['value']['input']['text']])
 
-def handle_chat_input(prompt):
-    print("Handling input:", prompt)  # Debug print
-    if prompt:
-        bot_type_llm = bot_type == "LLM"
-        if bot_type_llm and not openai_api_key:
-            st.info("Please add your OpenAI API key to continue.")
-            st.stop()
+# Function to clear the user input
+def clear_user_input():
+    st.session_state.user_input = ""
 
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.chat_message("user").write(prompt)
-
-        if bot_type == "LLM":
-            response = handle_llm(prompt, openai_api_key)
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            st.chat_message("assistant").write(response)
+# Handle user input and process the response
+def handle_chat_input():
+    user_input = st.session_state.get("user_input", "")
+    if user_input:  # Check if there's input to process
+        if bot_type == "LLM" and openai_api_key:
+            response = handle_llm(user_input, openai_api_key)
+            add_message("assistant", response)
         else:
-            if 'watson_session' not in st.session_state:
-                assistant, assistant_id, session_id = create_watson_session()
-                st.session_state['watson_session'] = (assistant, assistant_id, session_id)
-
-            response, assistant, response_data = handle_rule_based(prompt, assistant, assistant_id, session_id)
-            st.session_state['response_data'] = response_data
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            st.chat_message("assistant").write(response)
-
+            response, assistant, response_data = handle_rule_based(user_input, *st.session_state.watson_session)
             render_option_buttons(response_data)
+            add_message("assistant", response)
+        add_message("user", user_input)
+        st.session_state.user_input = ''  # Reset user_input for the next interaction
+        st.experimental_rerun()  # Rerun to clear the input field
 
-if prompt := st.chat_input():
-    handle_chat_input(prompt)
+def on_submit():
+    user_input = st.session_state.user_input  # Get the current input
+    if user_input:  # If there's an input, process it
+        # Your existing input handling logic
+        # ...
+        st.session_state.user_input = ''  # Clear the input after processing
+
+# Display the input field and a submit button that triggers the callback
+user_input = st.text_input("Enter your belief to challenge:", key="user_input")
+submit_button = st.button("Submit", on_click=on_submit)
+
+# Display chat messages
+for msg in st.session_state.get("messages", []):
+    st.write(f"{msg['role']}: {msg['content']}")
+
+
